@@ -8,5 +8,5 @@ subjects:
   namespace: kubeflow
 roleRef:
   kind: ClusterRole
-  name: cluster-admin
+  name: kubeflow-operator
   apiGroup: rbac.authorization.k8s.io
