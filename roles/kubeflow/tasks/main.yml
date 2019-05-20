@@ -1,0 +1,65 @@
+- name: create temporary kubeflow src dir
+  file: path="{{ kubeflow.kubeflow_src }}" state=directory
+
+- name: get PATH
+  shell: echo $PATH
+  register: path
+
+- name: download ks
+  include: ks.yml
+
+- name: download kubectl
+  include: kubectl.yml
+
+- name: Check whether kfctl exists
+  stat:
+    path: "{{ kubeflow.kubeflow_src }}/kfctl"
+  register: kubeflow_stats
+
+- name: download kubeflow scripts
+  block:
+    - get_url: 
+        url: https://github.com/kubeflow/kubeflow/releases/download/{{ kubeflow.kubeflow_tag }}/kfctl_{{ kubeflow.kubeflow_tag }}_linux.tar.gz
+        dest: "{{ kubeflow.kubeflow_src }}/kfctl_{{ kubeflow.kubeflow_tag }}_linux.tar.gz"
+    - shell: |
+        cd {{ kubeflow.kubeflow_src }}
+        tar -xvf kfctl_{{ kubeflow.kubeflow_tag }}_linux.tar.gz
+  when: kubeflow_stats.stat.exists == False
+
+- name: set up and generate k8s application
+  ignore_errors: yes
+  environment:
+    DEFAULT_KUBEFLOW_COMPONENTS: "{{ kubeflow.components }}"
+    K8S_NAMESPACE: "{{ kubeflow.namespace }}"
+    PATH: "{{ path.stdout }}:/opt/ansible:{{ kubeflow.kubeflow_src }}"
+    KFAPP: "{{ kubeflow.kubeflow_src }}/kfapp"
+  shell: |
+    cd {{ kubeflow.kubeflow_src }}
+    kfctl init ${KFAPP} -n {{ kubeflow.namespace }} -V
+    cd ${KFAPP}
+    kfctl generate all -V
+    cd ks_app/components
+    rm -f ambassador.jsonnet argo.jsonnet jupyter-web-app.jsonnet notebook-controller.jsonnet pipeline.jsonnet
+  when: kubeflow_stats.stat.exists == False
+
+- name: deploy kubeflow pipelines service
+  ignore_errors: yes
+  environment:
+    DEFAULT_KUBEFLOW_COMPONENTS: "{{ kubeflow.components }}"
+    PATH: "{{ path.stdout }}:/opt/ansible:{{ kubeflow.kubeflow_src }}"
+  shell: |
+    cd {{ kubeflow.kubeflow_src }}/kfapp
+    kfctl apply all -V
+
+- name: wait for service running
+  environment:
+    PATH: "{{ path.stdout }}:/opt/ansible"
+  shell: |
+    state=""
+    retries=0
+    while [ "$state" != "Running" -a $retries -lt 300 ]
+    do
+        sleep 2
+        retries=`expr $retries + 1`
+        state=$(kubectl get pods -o=jsonpath='{range .items[*]}{.status.phase}{"\n"}{end}' -n {{ kubeflow.namespace }} |uniq)
+    done

@@ -1,0 +1,17 @@
+- name: Check whether ks exists
+  stat:
+    path: /opt/ansible/ks
+  register: ks_stats
+
+- name: Download ksonnet
+  block:
+    - get_url: 
+        url: https://github.com/ksonnet/ksonnet/releases/download/v{{ kubeflow.ks_version }}/ks_{{ kubeflow.ks_version }}_linux_amd64.tar.gz
+        dest: "{{ kubeflow.kubeflow_src }}/ks.tgz"
+    - shell: |
+        tar zxvf {{ kubeflow.kubeflow_src }}/ks.tgz
+    - copy:
+        src: "ks_{{ kubeflow.ks_version }}_linux_amd64/ks"
+        dest: "/opt/ansible/ks"
+        mode: 0744    
+  when: ks_stats.stat.exists == False           

@@ -1,0 +1,7 @@
+kubeflow:
+  kubeflow_src: /tmp/kubeflow-src
+  components: '"ambassador","argo","pipeline"'
+  namespace: "{{ meta.namespace | default('kubeflow', true) }}"
+  kubeflow_tag: "{{ lookup('env','KUBEFLOW_TAG') | default('v0.5.1', true) }}"
+  ks_version: "{{ lookup('env','KS_VERSION') | default('0.13.1', true) }}"
+  kubectl_version: "{{ lookup('env','KUBECTL_VERSION') | default('v1.13.4', true) }}"
