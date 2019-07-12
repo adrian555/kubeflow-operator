@@ -47,9 +47,11 @@
   environment:
     DEFAULT_KUBEFLOW_COMPONENTS: "{{ kubeflow.components }}"
     PATH: "{{ path.stdout }}:/opt/ansible:{{ kubeflow.kubeflow_src }}"
+    KFAPP: "{{ kubeflow.kubeflow_src }}/kfapp"
   shell: |
-    cd {{ kubeflow.kubeflow_src }}/kfapp
+    cd ${KFAPP}
     kfctl apply all -V
+  when: kubeflow_stats.stat.exists == False
 
 - name: wait for service running
   environment:
